@@ -104,4 +104,5 @@ wss.on('connection', (ws) => {
   })
 })
 
-server.listen(8080, () => console.log('Watch party WebSocket server listening on http://localhost:8080'))
+const port = Number(process.env.PORT || 8080)
+server.listen(port, () => console.log(`Watch party WebSocket server listening on port ${port}`))
