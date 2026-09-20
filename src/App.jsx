@@ -81,6 +81,8 @@ function App() {
             }, 1200)
           },
           onStateChange: (event) => {
+            const currentDuration = event.target.getDuration()
+            if (currentDuration > 0) setDuration(currentDuration)
             if (roomStateRef.current.playing && [window.YT.PlayerState.CUED, window.YT.PlayerState.BUFFERING, window.YT.PlayerState.PAUSED].includes(event.data)) {
               window.setTimeout(() => {
                 if (!canControl) event.target.mute()
@@ -111,7 +113,14 @@ function App() {
     }
     if (videoChanged) {
       const timers = [700, 1400, 2200].map((delay) => window.setTimeout(applyPlayback, delay))
-      return () => timers.forEach((timer) => window.clearTimeout(timer))
+      const durationTimers = [500, 1200, 2200].map((delay) => window.setTimeout(() => {
+        const currentDuration = player.getDuration()
+        if (currentDuration > 0) setDuration(currentDuration)
+      }, delay))
+      return () => {
+        timers.forEach((timer) => window.clearTimeout(timer))
+        durationTimers.forEach((timer) => window.clearTimeout(timer))
+      }
     }
     applyPlayback()
   }, [room.videoId, room.playing, room.position])
