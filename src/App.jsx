@@ -23,6 +23,8 @@ const initialRoom = {
 
 const clientId = sessionStorage.getItem('gather-client-id') || crypto.randomUUID()
 sessionStorage.setItem('gather-client-id', clientId)
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+const websocketUrl = apiUrl.replace(/^http/, 'ws')
 
 function App() {
   const [room, setRoom] = useState(initialRoom)
@@ -116,8 +118,7 @@ function App() {
 
   useEffect(() => {
     if (!joined) return undefined
-    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
-    const connection = new WebSocket(`${protocol}://${window.location.hostname}:8080`)
+    const connection = new WebSocket(websocketUrl)
     connection.onopen = () => connection.send(JSON.stringify({ type: 'join_room', roomId: roomCode, username, userId: clientId }))
     connection.onmessage = (event) => {
       const payload = JSON.parse(event.data)
@@ -199,7 +200,7 @@ function App() {
   const createRoom = async () => {
     try {
       setRoomError('')
-      const response = await fetch('http://localhost:8080/api/rooms', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: roomCode, name: roomName }) })
+      const response = await fetch(`${apiUrl}/api/rooms`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: roomCode, name: roomName }) })
       if (!response.ok) throw new Error('Room service unavailable')
       const data = await response.json()
       setRoomCode(data.roomId)
