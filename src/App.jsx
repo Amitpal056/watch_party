@@ -210,8 +210,8 @@ function App() {
     try {
       setRoomError('')
       const response = await fetch(`${apiUrl}/api/rooms`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roomId: roomCode, name: roomName }) })
-      if (!response.ok) throw new Error('Room service unavailable')
-      const data = await response.json()
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || `Room service unavailable (${response.status})`)
       setRoomCode(data.roomId)
       setRoomName(data.roomName)
       localStorage.setItem('gather-room-code', data.roomId)
