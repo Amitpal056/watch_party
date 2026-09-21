@@ -24,7 +24,8 @@ function App() {
   const [room, setRoom] = useState(initialRoom)
   const [roomCode, setRoomCode] = useState(() => localStorage.getItem('gather-room-code') || '')
   const [roomName, setRoomName] = useState(() => localStorage.getItem('gather-room-name') || '')
-  const [joined, setJoined] = useState(() => Boolean(localStorage.getItem('gather-room-code')))
+  const [joined, setJoined] = useState(false)
+  const [connecting, setConnecting] = useState(() => Boolean(localStorage.getItem('gather-room-code')))
   const [creatingRoom, setCreatingRoom] = useState(false)
   const [username, setUsername] = useState(() => sessionStorage.getItem('gather-username') || 'You')
   const [selfId, setSelfId] = useState('you')
@@ -47,7 +48,7 @@ function App() {
   const activeCount = room.participants.filter((person) => person.online).length
 
   useEffect(() => {
-    if (!joined) return undefined
+    if (!joined && !connecting) return undefined
     if (!window.YT) {
       const script = document.createElement('script')
       script.id = 'youtube-iframe-api'
@@ -90,7 +91,7 @@ function App() {
     if (window.YT?.Player) createPlayer()
     else window.onYouTubeIframeAPIReady = createPlayer
     return () => { window.onYouTubeIframeAPIReady = null }
-  }, [joined])
+  }, [joined, connecting])
 
   useEffect(() => {
     if (!playerReadyRef.current || !playerApiRef.current) return
@@ -120,13 +121,14 @@ function App() {
   }, [room.videoId, room.playing, room.position])
 
   useEffect(() => {
-    if (!joined) return undefined
+    if (!joined && !connecting) return undefined
     const connection = new WebSocket(websocketUrl)
     connection.onopen = () => connection.send(JSON.stringify({ type: 'join_room', roomId: roomCode, username, userId: clientId }))
     connection.onmessage = (event) => {
       const payload = JSON.parse(event.data)
       if (payload.type === 'error') {
         setRoomError(payload.message)
+        setConnecting(false)
         if (payload.code === 'room_not_found' || payload.code === 'participant_removed') {
           localStorage.removeItem('gather-room-code')
           localStorage.removeItem('gather-room-name')
@@ -138,17 +140,22 @@ function App() {
         localStorage.removeItem('gather-room-code')
         localStorage.removeItem('gather-room-name')
         setRoomError('You were removed from this room by the Host.')
+        setConnecting(false)
         setJoined(false)
         return
       }
       if (payload.selfId) setSelfId(payload.selfId)
       if (payload.requests) setPendingRequests(payload.requests)
-      if (payload.type === 'sync_state' || payload.type === 'user_joined' || payload.type === 'user_left' || payload.type === 'chat_message') setRoom((current) => ({ ...current, ...payload }))
+      if (payload.type === 'sync_state') {
+        setRoom((current) => ({ ...current, ...payload }))
+        setConnecting(false)
+        setJoined(true)
+      } else if (payload.type === 'user_joined' || payload.type === 'user_left' || payload.type === 'chat_message') setRoom((current) => ({ ...current, ...payload }))
     }
-    connection.onerror = () => setSocket(null)
+    connection.onerror = () => { setSocket(null); setConnecting(false); setRoomError('Unable to connect to that room.') }
     setSocket(connection)
     return () => connection.close()
-  }, [roomCode, joined, username])
+  }, [roomCode, joined, username, connecting])
 
   const emit = (type, payload = {}) => {
     if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type, roomId: roomCode, ...payload }))
@@ -217,7 +224,7 @@ function App() {
       setRoomName(data.roomName)
       localStorage.setItem('gather-room-code', data.roomId)
       localStorage.setItem('gather-room-name', data.roomName)
-      setJoined(true)
+      setConnecting(true)
     } catch (error) {
       setRoomError(error instanceof Error ? error.message : 'Unable to create room.')
     }
@@ -250,7 +257,7 @@ function App() {
     localStorage.setItem('gather-room-code', roomCode)
     localStorage.setItem('gather-room-name', '')
     sessionStorage.setItem('gather-username', username.trim() || 'Guest')
-    setJoined(true)
+    setConnecting(true)
   }
 
   if (!joined) return <Landing roomCode={roomCode} setRoomCode={setRoomCode} roomName={roomName} setRoomName={setRoomName} username={username} setUsername={setUsername} creatingRoom={creatingRoom} setCreatingRoom={setCreatingRoom} setRoomError={setRoomError} onJoin={joinRoom} onCreate={createRoom} error={roomError} />
