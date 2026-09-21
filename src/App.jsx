@@ -133,11 +133,18 @@ function App() {
       const payload = JSON.parse(event.data)
       if (payload.type === 'error') {
         setRoomError(payload.message)
-        if (payload.code === 'room_not_found') {
+        if (payload.code === 'room_not_found' || payload.code === 'participant_removed') {
           localStorage.removeItem('gather-room-code')
           localStorage.removeItem('gather-room-name')
           setJoined(false)
         }
+        return
+      }
+      if (payload.type === 'participant_removed') {
+        localStorage.removeItem('gather-room-code')
+        localStorage.removeItem('gather-room-name')
+        setRoomError('You were removed from this room by the Host.')
+        setJoined(false)
         return
       }
       if (payload.selfId) setSelfId(payload.selfId)

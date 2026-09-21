@@ -27,7 +27,7 @@ app.post('/api/rooms', (req, res) => {
 })
 
 function getRoom(roomId) {
-  if (!rooms.has(roomId)) rooms.set(roomId, { name: 'Sunday evening watch', videoId: 'dQw4w9WgXcQ', title: 'The art of slow living in a fast world', playing: false, position: 42, users: new Map(), messages: [], requests: new Map() })
+  if (!rooms.has(roomId)) rooms.set(roomId, { name: 'Sunday evening watch', videoId: 'dQw4w9WgXcQ', title: 'The art of slow living in a fast world', playing: false, position: 42, users: new Map(), messages: [], requests: new Map(), removedUsers: new Set() })
   return rooms.get(roomId)
 }
 
@@ -53,6 +53,7 @@ wss.on('connection', (ws) => {
       const room = rooms.get(roomId)
       if (!room) return send(ws, { type: 'error', code: 'room_not_found', message: 'That room does not exist. Check the room ID or create a new room.' })
       const id = String(event.userId || Math.random().toString(36).slice(2, 9))
+      if (room.removedUsers.has(id)) return send(ws, { type: 'error', code: 'participant_removed', message: 'You were removed from this room by the Host.' })
       const existingUser = room.users.get(id)
       const user = existingUser || { id, name: event.username || 'Guest', role: room.users.size === 0 ? 'Host' : 'Participant', color: '#89a4d8', online: true, ws }
       user.name = event.username || user.name
@@ -71,7 +72,7 @@ wss.on('connection', (ws) => {
     if (event.type === 'change_video') { room.videoId = String(event.videoId); room.title = String(event.title || 'A new shared video'); room.position = 0; room.playing = false }
     if (event.type === 'rename_room' && user.role === 'Host') room.name = String(event.name || '').trim().slice(0, 80) || room.name
     if (event.type === 'assign_role' && user.role === 'Host') { const target = room.users.get(event.userId); if (target && ['Participant', 'Moderator'].includes(event.role)) target.role = event.role }
-    if (event.type === 'remove_participant' && user.role === 'Host') { const target = room.users.get(event.userId); if (target) { send(target.ws, { type: 'participant_removed' }); target.ws.close(); removeUser(room, event.userId) } }
+    if (event.type === 'remove_participant' && user.role === 'Host') { const target = room.users.get(event.userId); if (target) { room.removedUsers.add(target.id); send(target.ws, { type: 'participant_removed' }); target.ws.close(); removeUser(room, event.userId) } }
     if (event.type === 'transfer_host' && user.role === 'Host') { const target = room.users.get(event.userId); if (target) { user.role = 'Moderator'; target.role = 'Host' } }
     if (event.type === 'request_control' && user.role === 'Participant') { const request = { id: Math.random().toString(36).slice(2, 9), userId: user.id, username: user.name, action: event.action, payload: event.payload || {} }; room.requests.set(request.id, request) }
     if (event.type === 'approve_request' && canControl(user)) { const request = room.requests.get(event.requestId); if (request) { room.requests.delete(request.id); if (event.approved) { if (request.action === 'play') room.playing = true; if (request.action === 'pause') room.playing = false; if (request.action === 'seek') room.position = Math.max(0, Number(request.payload.position) || 0); if (request.action === 'change_video') { room.videoId = String(request.payload.videoId); room.title = String(request.payload.title || 'A new shared video'); room.position = 0 } } } }
