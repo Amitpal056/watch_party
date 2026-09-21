@@ -3,9 +3,6 @@ import { Check, ChevronDown, Copy, Crown, Link2, LogOut, MessageCircle, MoreHori
 
 const demoParticipants = [
   { id: 'you', name: 'You', role: 'Host', color: '#e78961', online: true },
-  { id: 'maya', name: 'Maya Chen', role: 'Moderator', color: '#89a4d8', online: true },
-  { id: 'jon', name: 'Jon Bell', role: 'Participant', color: '#c6a05d', online: true },
-  { id: 'ravi', name: 'Ravi Shah', role: 'Participant', color: '#8cbb9a', online: false },
 ]
 
 const initialRoom = {
@@ -15,10 +12,7 @@ const initialRoom = {
   playing: false,
   position: 226,
   participants: demoParticipants,
-  messages: [
-    { id: '1', name: 'Maya Chen', message: 'This intro is beautiful.', time: '9:41 PM', color: '#89a4d8' },
-    { id: '2', name: 'You', message: 'Right? The whole film feels so calm.', time: '9:42 PM', color: '#e78961' },
-  ],
+  messages: [],
 }
 
 const clientId = sessionStorage.getItem('gather-client-id') || crypto.randomUUID()
